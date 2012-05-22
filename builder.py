@@ -19,6 +19,11 @@ logger.addHandler(logging_handler)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logging_handler.setFormatter(formatter)
 
+def executable_available(*exec_names):
+    return any(os.path.isfile(f) and os.access(f, os.X_OK) \
+        for f in [os.path.join(p, n) \
+            for p in os.environ['PATH'].split(os.path.pathsep) \
+                for n in exec_names])
 
 class Builder(object):
     phases = []
@@ -394,7 +399,31 @@ class FedoraBuilder(EL6Builder):
     _mock_config = 'fedora-16'
 
 @Builder.register(
-    profile_graph = any(os.path.isfile(f) and os.access(f, os.X_OK) for f in \
-        [os.path.join(p,'gprof2dot') for p in os.environ['PATH'].split(os.path.pathsep)]))
+    profile_graph = executable_available('gprof2dot') and \
+        executable_available('dot'))
 class ProfileGraphBuilder(Builder):
-    pass
+    phases = ['build', 'profile', 'convert', 'render']
+    def build(self, phase='build'):
+        statsfile = 'overviewer.pstats'
+        if phase == 'build':
+            Builder.build(self, phase)
+        elif phase == 'profile':
+            os.mkdir('profile-output')
+            self.popen('profile',
+                [self.python, '-m', 'cProfile', '-o', statsfile, 'overviewer.py',
+                    '-p', '1', '--rendermodes', 'lighting',
+                    os.path.join(self.original_dir, 'exmaple'), 'profile-output'])
+        elif phase == 'convert':
+            self.popen('convert',
+                ['gprof2dot', '-f', 'pstats', statsfile, '-o', 'overviewer.dot'])
+        elif phase == 'render':
+            self.popen('render',
+                    ['dot', '-Tpng', '-o', self.filename(), 'overviewer.dot'])
+            shutil.copy2(self.filename(), self.original_dir)
+
+    def filename(self):
+        return 'Minecraft-Overviewer_{version}-{commit}.png'.format(
+            version=self.getVersion(), commit=self.getCommit())
+
+    def package(self):
+        return os.path.join(self.temp_area, self.filename())
