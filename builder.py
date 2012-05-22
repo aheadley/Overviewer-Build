@@ -392,3 +392,9 @@ class EL5Builder(ELBuilderBase):
 class FedoraBuilder(EL6Builder):
     _base = 'fc16'
     _mock_config = 'fedora-16'
+
+@Builder.register(
+    profile_graph = any(os.path.isfile(f) and os.access(f, os.X_OK) for f in \
+        [os.path.join(p,'gprof2dot') for p in os.environ['PATH'].split(os.path.pathsep)]))
+class ProfileGraphBuilder(Builder):
+    pass
