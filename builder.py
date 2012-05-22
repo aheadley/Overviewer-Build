@@ -419,7 +419,6 @@ class ProfileGraphBuilder(Builder):
         elif phase == 'render':
             self.popen('render',
                     ['dot', '-Tpng', '-o', self.filename(), 'overviewer.dot'])
-            shutil.copy2(self.filename(), self.original_dir)
 
     def filename(self):
         return 'Minecraft-Overviewer_{version}-{commit}.png'.format(
